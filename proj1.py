@@ -5,9 +5,10 @@ import cv2
 
 
 #reading in an image
-image = mpimg.imread('test_images/solidWhiteRight.jpg')
+# image = mpimg.imread('test_images/solidWhiteRight.jpg')
 # image = mpimg.imread('test_images/solidWhiteCurve.jpg')
 # image = mpimg.imread('test_images/solidYellowCurve2.jpg')
+image = mpimg.imread('test_images/whiteCarLaneSwitch.jpg')
 
 #printing out some stats and plotting
 print('This image is:', type(image), 'with dimensions:', image.shape)
@@ -137,7 +138,35 @@ line_image = hough_lines(masked_image, rho, theta, threshold, min_line_len, max_
 
 color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
 
-lines_edges = weighted_img(line_image,color_edges)
+# line interpolation
+def interpolate_lines(line_image):
+	imY,imX = line_image[:,:,0].shape
+	print(imX,imY)
+	lines = cv2.HoughLinesP(line_image[:,:,0], rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
+	
+	LeftSet = []
+	RightSet = []
+	for line in lines:
+		p1 = (line[0][0],line[0][1])
+		p2 = (line[0][2],line[0][3])
+		if p1[0] < imX/2:
+			LeftSet.append(p1)
+		else:
+			RightSet.append(p1)
+		if p2[0] < imX/2:
+			LeftSet.append(p2)
+		else:
+			RightSet.append(p2)	
+	LeftSet = np.array(LeftSet)
+	RightSet = np.array(RightSet)
+	new_line_img = np.zeros((line_image.shape[0], line_image.shape[1], 3), dtype=np.uint8)
+
+	cv2.polylines(new_line_img, np.int32([LeftSet]), 1, (255,0,0),5)
+	cv2.polylines(new_line_img, np.int32([RightSet]), 1, (255,0,0),5)
+	return new_line_img
+
+new_line_img = interpolate_lines(line_image)
+lines_edges = weighted_img(new_line_img,color_edges)
 
 plt.imshow(lines_edges)
 plt.show()
