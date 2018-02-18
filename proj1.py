@@ -44,7 +44,7 @@ def gaussian_blur(img, kernel_size):
     """Applies a Gaussian Noise kernel"""
     return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
 
-def region_of_interest(img, vertices,vertices_inner,ignore_mask_color=None):
+def region_of_interest(img, vertices,ignore_mask_color=None):
     """
     Applies an image mask.
     
@@ -64,19 +64,7 @@ def region_of_interest(img, vertices,vertices_inner,ignore_mask_color=None):
             ignore_mask_color = 255            
     #filling pixels inside the polygon defined by "vertices" with the fill color    
     cv2.fillPoly(mask, vertices, ignore_mask_color)
-    cv2.fillPoly(mask_inner, vertices_inner, ignore_mask_color)
     
-    # final_mask = cv2.bitwise_or(mask,mask_inner)
-    final_mask = mask - mask_inner
-    # plt.figure()
-    # plt.imshow(mask)
-    # plt.title("mask outer")
-    # plt.figure()
-    # plt.imshow(mask_inner)
-    # plt.title("mask inner")
-    # plt.figure()
-    # plt.imshow(final_mask)
-    # plt.title("mask final")
     #returning the image only where mask pixels are nonzero
     masked_image = cv2.bitwise_and(img, mask)
     return masked_image
@@ -148,34 +136,37 @@ def draw_lane_lines(image,):
 
     gray_image = grayscale(image)
     gaussian_image = gaussian_blur(gray_image,11)
-    # edges = canny(gaussian_image,95,100)
 
     imgX = image.shape[1]
     imgY = image.shape[0]
 
     left_lower = (imgX*0.10,imgY)
-    left_upper = (imgX*0.45,imgY*0.62)
-    right_upper = (imgX*0.55,imgY*0.62)
-    right_lower = (imgX*0.90,imgY)
+    left_upper = (imgX*0.42,imgY*0.62)
+    right_upper = (imgX*0.57,imgY*0.62)
+    right_lower = (imgX*0.92,imgY)
 
-    left_lower_in = (imgX*0.15,imgY)
+    left_lower_in = (imgX*0.20,imgY)
     left_upper_in = (imgX*0.50,imgY*0.62)
     right_upper_in = (imgX*0.50,imgY*0.62)
-    right_lower_in = (imgX*0.85,imgY)
+    right_lower_in = (imgX*0.80,imgY)
 
     vertices = np.array([[left_lower,left_upper,right_upper,right_lower]], dtype=np.int32)
     vertices_inner = np.array([[left_lower_in,left_upper_in,right_upper_in,right_lower_in]], dtype=np.int32)
     
-    # masked_image = region_of_interest(edges, vertices,vertices_inner)
+    edges = canny(gaussian_image,95,100)
+    masked_image = region_of_interest(edges, vertices)
     
-    masked_image = region_of_interest(gaussian_image, vertices,vertices_inner)
-    edges = canny(masked_image,95,100)
+    # masked_image = region_of_interest(gaussian_image, vertices,vertices_inner)
+    # masked_image = gaussian_blur(masked_image,11)
+    # edges = canny(masked_image,95,100)
+    # edges = region_of_interest(edges, vertices,vertices_inner)
    
 
     plt.figure()
+    plt.imshow(edges)
+    plt.figure()
     plt.imshow(masked_image)
     plt.title("masked_image")
-    line_image = hough_lines(edges, rho, theta, threshold, min_line_len, max_line_gap)
     # line_image = hough_lines(inner_mask, rho, theta, threshold, min_line_len, max_line_gap)
 
     color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
@@ -184,9 +175,9 @@ def draw_lane_lines(image,):
 
     # line interpolation
     def interpolate_lines(line_image,_color=RED,line_thickness=10):
-        imY,imX = line_image[:,:,0].shape
+        imY,imX = line_image.shape
         # print(imX,imY)
-        lines = cv2.HoughLinesP(line_image[:,:,0], rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
+        lines = cv2.HoughLinesP(line_image, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
         
         LeftSet = []
         RightSet = []
@@ -224,8 +215,8 @@ def draw_lane_lines(image,):
         LeftPts = np.append(LeftPts,np.array([[curve(imY,a),imY]]),axis=0)
         RightPts = np.append(RightPts,np.array([[curve(imY,b),imY]]),axis=0)
 
-        LeftSet = np.array(LeftSet)
-        RightSet = np.array(RightSet)
+        # LeftSet = np.array(LeftSet)
+        # RightSet = np.array(RightSet)
         
         new_line_img = np.zeros((line_image.shape[0], line_image.shape[1], 3), dtype=np.uint8)
 
@@ -233,7 +224,9 @@ def draw_lane_lines(image,):
         cv2.polylines(new_line_img, np.int32([RightPts]), 0, _color,line_thickness)
         return new_line_img
 
-    new_line_img = interpolate_lines(line_image)
+    line_image = hough_lines(masked_image, rho, theta, threshold, min_line_len, max_line_gap)
+    # new_line_img = interpolate_lines(line_image[:,:,0])
+    new_line_img = interpolate_lines(masked_image)
     lines_edges = weighted_img(new_line_img,color_edges)
     # return edges
     return lines_edges
@@ -255,7 +248,7 @@ def process_image(image):
         result = image
     return result
 
-
+'''
 white_output = 'test_videos_output/solidWhiteRight.mp4'
 ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
 ## To do so add .subclip(start_second,end_second) to the end of the line below
@@ -265,8 +258,8 @@ white_output = 'test_videos_output/solidWhiteRight.mp4'
 clip1 = VideoFileClip("test_videos/solidWhiteRight.mp4")
 white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
 white_clip.write_videofile(white_output, audio=False)
-
 '''
+
 yellow_output = 'test_videos_output/solidYellowLeft.mp4'
 ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
 ## To do so add .subclip(start_second,end_second) to the end of the line below
@@ -276,7 +269,7 @@ yellow_output = 'test_videos_output/solidYellowLeft.mp4'
 clip2 = VideoFileClip('test_videos/solidYellowLeft.mp4')
 yellow_clip = clip2.fl_image(process_image)
 yellow_clip.write_videofile(yellow_output, audio=False)
-'''
+
 
 '''
 challenge_output = 'test_videos_output/challenge.mp4'
