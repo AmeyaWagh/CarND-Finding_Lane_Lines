@@ -6,9 +6,9 @@ import cv2
 
 #reading in an image
 # image = mpimg.imread('test_images/solidWhiteRight.jpg')
-# image = mpimg.imread('test_images/solidWhiteCurve.jpg')
+image = mpimg.imread('test_images/solidWhiteCurve.jpg')
 # image = mpimg.imread('test_images/solidYellowCurve2.jpg')
-image = mpimg.imread('test_images/whiteCarLaneSwitch.jpg')
+# image = mpimg.imread('test_images/whiteCarLaneSwitch.jpg')
 
 #printing out some stats and plotting
 print('This image is:', type(image), 'with dimensions:', image.shape)
@@ -111,62 +111,93 @@ def weighted_img(img, initial_img, α=0.8, β=1., γ=0.):
 import os
 os.listdir("test_images/")
 
+def draw_lane_lines(image):
+	rho = 1 # distance resolution in pixels of the Hough grid
+	theta = np.pi/180 # angular resolution in radians of the Hough grid
+	threshold = 1     # minimum number of votes (intersections in Hough grid cell)
+	min_line_len = 5 #minimum number of pixels making up a line
+	max_line_gap = 3    # maximum gap in pixels between connectable line segments
+	line_image = np.copy(image)*0 # creating a blank to draw lines on
+	RED = (255,0,0)
+	GREEN = (0,255,0)
+	BLUE = (0,0,255)
 
-rho = 1 # distance resolution in pixels of the Hough grid
-theta = np.pi/180 # angular resolution in radians of the Hough grid
-threshold = 1     # minimum number of votes (intersections in Hough grid cell)
-min_line_len = 5 #minimum number of pixels making up a line
-max_line_gap = 3    # maximum gap in pixels between connectable line segments
-line_image = np.copy(image)*0 # creating a blank to draw lines on
+	gray_image = grayscale(image)
+	gaussian_image = gaussian_blur(gray_image,5)
+	edges = canny(gaussian_image,90,100)
 
+	imshape = image.shape
+	x_1 = (imshape[1]*0.01,imshape[0])
+	x_2 = (imshape[1]*0.40,imshape[0]*0.66)
+	x_3 = (imshape[1]*0.60,imshape[0]*0.66)
+	x_4 = (imshape[1]*0.99,imshape[0])
+	# poly_shape = [(145,imshape[0]),(442, 330), (531, 330), (866,imshape[0])]
+	poly_shape = [x_1,x_2, x_3, x_4]
 
-gray_image = grayscale(image)
-gaussian_image = gaussian_blur(gray_image,5)
-edges = canny(gaussian_image,90,100)
+	vertices = np.array([poly_shape], dtype=np.int32)
+	masked_image = region_of_interest(edges, vertices)
+	line_image = hough_lines(masked_image, rho, theta, threshold, min_line_len, max_line_gap)
 
-imshape = image.shape
-x_1 = (imshape[1]*0.01,imshape[0])
-x_2 = (imshape[1]*0.40,imshape[0]*0.66)
-x_3 = (imshape[1]*0.60,imshape[0]*0.66)
-x_4 = (imshape[1]*0.99,imshape[0])
-# poly_shape = [(145,imshape[0]),(442, 330), (531, 330), (866,imshape[0])]
-poly_shape = [x_1,x_2, x_3, x_4]
+	color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
 
-vertices = np.array([poly_shape], dtype=np.int32)
-masked_image = region_of_interest(edges, vertices)
-line_image = hough_lines(masked_image, rho, theta, threshold, min_line_len, max_line_gap)
+	# line interpolation
+	def interpolate_lines(line_image,_color=RED,line_thickness=10):
+		imY,imX = line_image[:,:,0].shape
+		print(imX,imY)
+		lines = cv2.HoughLinesP(line_image[:,:,0], rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
+		
+		LeftSet = []
+		RightSet = []
+		for line in lines:
+			p1 = (line[0][0],line[0][1])
+			p2 = (line[0][2],line[0][3])
+			if p1[0] < imX/2:
+				LeftSet.append(p1)
+			else:
+				RightSet.append(p1)
+			if p2[0] < imX/2:
+				LeftSet.append(p2)
+			else:
+				RightSet.append(p2)	
+		LeftSet = np.array(LeftSet)
+		RightSet = np.array(RightSet)
 
-color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
+		LeftX = np.array([pt[0] for pt in LeftSet])
+		LeftY = np.array([pt[1] for pt in LeftSet])
+		
+		
+		RightX = np.array([pt[0] for pt in RightSet])
+		RightY = np.array([pt[1] for pt in RightSet])
+		
 
-# line interpolation
-def interpolate_lines(line_image):
-	imY,imX = line_image[:,:,0].shape
-	print(imX,imY)
-	lines = cv2.HoughLinesP(line_image[:,:,0], rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
-	
-	LeftSet = []
-	RightSet = []
-	for line in lines:
-		p1 = (line[0][0],line[0][1])
-		p2 = (line[0][2],line[0][3])
-		if p1[0] < imX/2:
-			LeftSet.append(p1)
-		else:
-			RightSet.append(p1)
-		if p2[0] < imX/2:
-			LeftSet.append(p2)
-		else:
-			RightSet.append(p2)	
-	LeftSet = np.array(LeftSet)
-	RightSet = np.array(RightSet)
-	new_line_img = np.zeros((line_image.shape[0], line_image.shape[1], 3), dtype=np.uint8)
+		curve = lambda x,a: int(a[0]*x*x+a[1]*x+a[2])
+		
+		a = np.polyfit(LeftY, LeftX, 2)
+		b = np.polyfit(RightY, RightX, 2)
+		
+		LeftY.sort()
+		RightY.sort()
+		
+		LeftPts = [(curve(_y,a),_y) for _y in LeftY]
+		RightPts = [(curve(_y,b),_y) for _y in RightY]
+		# print(a)
+		# print(b)
 
-	cv2.polylines(new_line_img, np.int32([LeftSet]), 1, (255,0,0),5)
-	cv2.polylines(new_line_img, np.int32([RightSet]), 1, (255,0,0),5)
-	return new_line_img
+		LeftPts = np.append(LeftPts,np.array([[curve(imY,a),imY]]),axis=0)
+		RightPts = np.append(RightPts,np.array([[curve(imY,b),imY]]),axis=0)
 
-new_line_img = interpolate_lines(line_image)
-lines_edges = weighted_img(new_line_img,color_edges)
+		LeftSet = np.array(LeftSet)
+		RightSet = np.array(RightSet)
+		
+		new_line_img = np.zeros((line_image.shape[0], line_image.shape[1], 3), dtype=np.uint8)
 
-plt.imshow(lines_edges)
+		cv2.polylines(new_line_img, np.int32([LeftPts]), 0, _color,line_thickness)
+		cv2.polylines(new_line_img, np.int32([RightPts]), 0, _color,line_thickness)
+		return new_line_img
+
+	new_line_img = interpolate_lines(line_image)
+	lines_edges = weighted_img(new_line_img,color_edges)
+	return lines_edges
+
+plt.imshow(draw_lane_lines(image))
 plt.show()
