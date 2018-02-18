@@ -110,94 +110,144 @@ def weighted_img(img, initial_img, α=0.8, β=1., γ=0.):
 
 import os
 os.listdir("test_images/")
+if not os.path.isdir("test_videos_output"):
+    os.mkdir("test_videos_output")
+    print("No dir")
 
-def draw_lane_lines(image):
-	rho = 1 # distance resolution in pixels of the Hough grid
-	theta = np.pi/180 # angular resolution in radians of the Hough grid
-	threshold = 1     # minimum number of votes (intersections in Hough grid cell)
-	min_line_len = 5 #minimum number of pixels making up a line
-	max_line_gap = 3    # maximum gap in pixels between connectable line segments
-	line_image = np.copy(image)*0 # creating a blank to draw lines on
-	RED = (255,0,0)
-	GREEN = (0,255,0)
-	BLUE = (0,0,255)
+def draw_lane_lines(image,):
+    rho = 1 # distance resolution in pixels of the Hough grid
+    theta = np.pi/180 # angular resolution in radians of the Hough grid
+    threshold = 1     # minimum number of votes (intersections in Hough grid cell)
+    min_line_len = 5 #minimum number of pixels making up a line
+    max_line_gap = 3    # maximum gap in pixels between connectable line segments
+    line_image = np.copy(image)*0 # creating a blank to draw lines on
+    RED = (255,0,0)
+    GREEN = (0,255,0)
+    BLUE = (0,0,255)
 
-	gray_image = grayscale(image)
-	gaussian_image = gaussian_blur(gray_image,5)
-	edges = canny(gaussian_image,90,100)
+    gray_image = grayscale(image)
+    gaussian_image = gaussian_blur(gray_image,5)
+    edges = canny(gaussian_image,90,100)
 
-	imshape = image.shape
-	x_1 = (imshape[1]*0.01,imshape[0])
-	x_2 = (imshape[1]*0.40,imshape[0]*0.66)
-	x_3 = (imshape[1]*0.60,imshape[0]*0.66)
-	x_4 = (imshape[1]*0.99,imshape[0])
-	# poly_shape = [(145,imshape[0]),(442, 330), (531, 330), (866,imshape[0])]
-	poly_shape = [x_1,x_2, x_3, x_4]
+    imshape = image.shape
+    x_1 = (imshape[1]*0.01,imshape[0])
+    x_2 = (imshape[1]*0.40,imshape[0]*0.62)
+    x_3 = (imshape[1]*0.60,imshape[0]*0.62)
+    x_4 = (imshape[1]*0.99,imshape[0])
+    # poly_shape = [(145,imshape[0]),(442, 330), (531, 330), (866,imshape[0])]
+    poly_shape = [x_1,x_2, x_3, x_4]
 
-	vertices = np.array([poly_shape], dtype=np.int32)
-	masked_image = region_of_interest(edges, vertices)
-	line_image = hough_lines(masked_image, rho, theta, threshold, min_line_len, max_line_gap)
+    vertices = np.array([poly_shape], dtype=np.int32)
+    masked_image = region_of_interest(edges, vertices)
+    line_image = hough_lines(masked_image, rho, theta, threshold, min_line_len, max_line_gap)
 
-	color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
+    color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
 
-	# line interpolation
-	def interpolate_lines(line_image,_color=RED,line_thickness=10):
-		imY,imX = line_image[:,:,0].shape
-		print(imX,imY)
-		lines = cv2.HoughLinesP(line_image[:,:,0], rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
-		
-		LeftSet = []
-		RightSet = []
-		for line in lines:
-			p1 = (line[0][0],line[0][1])
-			p2 = (line[0][2],line[0][3])
-			if p1[0] < imX/2:
-				LeftSet.append(p1)
-			else:
-				RightSet.append(p1)
-			if p2[0] < imX/2:
-				LeftSet.append(p2)
-			else:
-				RightSet.append(p2)	
-		LeftSet = np.array(LeftSet)
-		RightSet = np.array(RightSet)
+    # line interpolation
+    def interpolate_lines(line_image,_color=RED,line_thickness=10):
+        imY,imX = line_image[:,:,0].shape
+        print(imX,imY)
+        lines = cv2.HoughLinesP(line_image[:,:,0], rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
+        
+        LeftSet = []
+        RightSet = []
+        for line in lines:
+            p1 = (line[0][0],line[0][1])
+            p2 = (line[0][2],line[0][3])
+            if p1[0] < imX/2:
+                LeftSet.append(p1)
+            else:
+                RightSet.append(p1)
+            if p2[0] < imX/2:
+                LeftSet.append(p2)
+            else:
+                RightSet.append(p2) 
+        LeftSet = np.array(LeftSet)
+        RightSet = np.array(RightSet)
 
-		LeftX = np.array([pt[0] for pt in LeftSet])
-		LeftY = np.array([pt[1] for pt in LeftSet])
-		
-		
-		RightX = np.array([pt[0] for pt in RightSet])
-		RightY = np.array([pt[1] for pt in RightSet])
-		
+        LeftX = np.array([pt[0] for pt in LeftSet])
+        LeftY = np.array([pt[1] for pt in LeftSet])
+        
+        
+        RightX = np.array([pt[0] for pt in RightSet])
+        RightY = np.array([pt[1] for pt in RightSet])
+        
 
-		curve = lambda x,a: int(a[0]*x*x+a[1]*x+a[2])
-		
-		a = np.polyfit(LeftY, LeftX, 2)
-		b = np.polyfit(RightY, RightX, 2)
-		
-		LeftY.sort()
-		RightY.sort()
-		
-		LeftPts = [(curve(_y,a),_y) for _y in LeftY]
-		RightPts = [(curve(_y,b),_y) for _y in RightY]
-		# print(a)
-		# print(b)
+        # curve = lambda x,a: int(a[0]*x*x+a[1]*x+a[2])
+        # curve = lambda x,a: int(a[0]*x*x*x+a[1]*x*x+a[2]*x+a[3])
+        curve = lambda x,a: int(a[0]*x+a[1])
+        
+        a = np.polyfit(LeftY, LeftX, 1)
+        b = np.polyfit(RightY, RightX, 1)
+        
+        LeftY.sort()
+        RightY.sort()
+        
+        LeftPts = [(curve(_y,a),_y) for _y in LeftY]
+        RightPts = [(curve(_y,b),_y) for _y in RightY]
+        # print(a)
+        # print(b)
 
-		LeftPts = np.append(LeftPts,np.array([[curve(imY,a),imY]]),axis=0)
-		RightPts = np.append(RightPts,np.array([[curve(imY,b),imY]]),axis=0)
+        LeftPts = np.append(LeftPts,np.array([[curve(imY,a),imY]]),axis=0)
+        RightPts = np.append(RightPts,np.array([[curve(imY,b),imY]]),axis=0)
 
-		LeftSet = np.array(LeftSet)
-		RightSet = np.array(RightSet)
-		
-		new_line_img = np.zeros((line_image.shape[0], line_image.shape[1], 3), dtype=np.uint8)
+        LeftSet = np.array(LeftSet)
+        RightSet = np.array(RightSet)
+        
+        new_line_img = np.zeros((line_image.shape[0], line_image.shape[1], 3), dtype=np.uint8)
 
-		cv2.polylines(new_line_img, np.int32([LeftPts]), 0, _color,line_thickness)
-		cv2.polylines(new_line_img, np.int32([RightPts]), 0, _color,line_thickness)
-		return new_line_img
+        cv2.polylines(new_line_img, np.int32([LeftPts]), 0, _color,line_thickness)
+        cv2.polylines(new_line_img, np.int32([RightPts]), 0, _color,line_thickness)
+        return new_line_img
 
-	new_line_img = interpolate_lines(line_image)
-	lines_edges = weighted_img(new_line_img,color_edges)
-	return lines_edges
+    new_line_img = interpolate_lines(line_image)
+    lines_edges = weighted_img(new_line_img,color_edges)
+    return lines_edges
 
 plt.imshow(draw_lane_lines(image))
 plt.show()
+
+from moviepy.editor import VideoFileClip
+from IPython.display import HTML
+
+def process_image(image):
+    # NOTE: The output you return should be a color image (3 channel) for processing video below
+    # TODO: put your pipeline here,
+    # you should return the final output (image where lines are drawn on lanes)
+    result = draw_lane_lines(image)
+    return result
+
+'''
+white_output = 'test_videos_output/solidWhiteRight.mp4'
+## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
+## To do so add .subclip(start_second,end_second) to the end of the line below
+## Where start_second and end_second are integer values representing the start and end of the subclip
+## You may also uncomment the following line for a subclip of the first 5 seconds
+##clip1 = VideoFileClip("test_videos/solidWhiteRight.mp4").subclip(0,5)
+clip1 = VideoFileClip("test_videos/solidWhiteRight.mp4")
+white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
+white_clip.write_videofile(white_output, audio=False)
+'''
+'''
+yellow_output = 'test_videos_output/solidYellowLeft.mp4'
+## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
+## To do so add .subclip(start_second,end_second) to the end of the line below
+## Where start_second and end_second are integer values representing the start and end of the subclip
+## You may also uncomment the following line for a subclip of the first 5 seconds
+##clip2 = VideoFileClip('test_videos/solidYellowLeft.mp4').subclip(0,5)
+clip2 = VideoFileClip('test_videos/solidYellowLeft.mp4')
+yellow_clip = clip2.fl_image(process_image)
+yellow_clip.write_videofile(yellow_output, audio=False)
+'''
+
+'''
+challenge_output = 'test_videos_output/challenge.mp4'
+## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
+## To do so add .subclip(start_second,end_second) to the end of the line below
+## Where start_second and end_second are integer values representing the start and end of the subclip
+## You may also uncomment the following line for a subclip of the first 5 seconds
+##clip3 = VideoFileClip('test_videos/challenge.mp4').subclip(0,5)
+clip3 = VideoFileClip('test_videos/challenge.mp4')
+challenge_clip = clip3.fl_image(process_image)
+challenge_clip.write_videofile(challenge_output, audio=False)
+'''
