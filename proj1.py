@@ -119,6 +119,37 @@ def weighted_img(img, initial_img, α=0.8, β=1., γ=0.):
     return cv2.addWeighted(initial_img, α, img, β, γ)
 
 
+def HSL_filtered(image):
+    hsl_image = cv2.cvtColor(image,cv2.COLOR_RGB2HLS)
+    # white color mask
+    lower = np.uint8([  0, 200,   0])
+    upper = np.uint8([255, 255, 255])
+    white_mask = cv2.inRange(hsl_image, lower, upper)
+    # yellow color mask
+    lower = np.uint8([ 10,   0, 100])
+    upper = np.uint8([ 40, 255, 255])
+    yellow_mask = cv2.inRange(hsl_image, lower, upper)
+    # combine the mask
+    mask = cv2.bitwise_or(white_mask, yellow_mask)
+    return cv2.bitwise_and(image, image, mask = mask)
+
+# def HSV_filtered(image):
+#     hsv_image = cv2.cvtColor(image,cv2.COLOR_RGB2HSV)
+#     # define range of blue color in HSV
+#     lower_yellow = np.array([58,13,60])
+#     upper_yellow = np.array([64,98,100])
+#     # Threshold the HSV image to get only blue colors
+#     mask_yellow = cv2.inRange(hsv_image, lower_yellow, upper_yellow)
+
+#     lower_white = np.array([0,0,60])
+#     upper_white = np.array([359,3,100])
+#     # Threshold the HSV image to get only blue colors
+#     mask_white = cv2.inRange(hsv_image, lower_white, upper_white)
+
+#     mask = cv2.bitwise_or(mask_white, mask_yellow)
+#     # Bitwise-AND mask and original image
+#     res = cv2.bitwise_and(image,image, mask= mask)
+
 import os
 os.listdir("test_images/")
 if not os.path.isdir("test_videos_output"):
@@ -128,21 +159,23 @@ if not os.path.isdir("test_videos_output"):
 def draw_lane_lines(image,):
     rho = 1 # distance resolution in pixels of the Hough grid
     theta = np.pi/180 # angular resolution in radians of the Hough grid
-    threshold = 1     # minimum number of votes (intersections in Hough grid cell)
-    min_line_len = 5 #minimum number of pixels making up a line
-    max_line_gap = 3    # maximum gap in pixels between connectable line segments
+    threshold = 20     # minimum number of votes (intersections in Hough grid cell)
+    min_line_len = 20 #minimum number of pixels making up a line
+    max_line_gap = 300    # maximum gap in pixels between connectable line segments
     line_image = np.copy(image)*0 # creating a blank to draw lines on
     
-
-    gray_image = grayscale(image)
-    gaussian_image = gaussian_blur(gray_image,11)
+    # hsl_image = cv2.cvtColor(image,cv2.COLOR_RGB2HLS)
+    hsl_image = HSL_filtered(image)
+    # hsl_image = HSV_filtered(image)
+    gray_image = grayscale(hsl_image)
+    gaussian_image = gaussian_blur(gray_image,15)
 
     imgX = image.shape[1]
     imgY = image.shape[0]
 
     left_lower = (imgX*0.10,imgY)
-    left_upper = (imgX*0.42,imgY*0.62)
-    right_upper = (imgX*0.57,imgY*0.62)
+    left_upper = (imgX*0.42,imgY*0.60)
+    right_upper = (imgX*0.57,imgY*0.60)
     right_lower = (imgX*0.92,imgY)
 
     left_lower_in = (imgX*0.20,imgY)
@@ -169,8 +202,8 @@ def draw_lane_lines(image,):
     plt.title("masked_image")
     # line_image = hough_lines(inner_mask, rho, theta, threshold, min_line_len, max_line_gap)
 
-    # color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
-    color_edges = np.dstack((masked_image, masked_image, masked_image)) 
+    color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
+    # color_edges = np.dstack((masked_image, masked_image, masked_image)) 
     # color_edges = np.dstack((edges, edges, edges)) 
 
     # line interpolation
@@ -204,43 +237,42 @@ def draw_lane_lines(image,):
         #------------- Slope Approach ------------------#
         # slope = lambda p1,p2: abs((p2[1]-p1[1])/(p2[0]-p1[0]+1e-10))
         
-        def slope(p1,p2):
-            if(p2[1] > p1[1]):
-                _slope = (p2[1]-p1[1])/(p2[0]-p1[0]+1e-10)
-            else:    
-                _slope = (p1[1]-p2[1])/(p1[0]-p2[0]+1e-10)
+        # def slope(p1,p2):
+        #     if(p2[1] > p1[1]):
+        #         _slope = (p2[1]-p1[1])/(p2[0]-p1[0]+1e-10)
+        #     else:    
+        #         _slope = (p1[1]-p2[1])/(p1[0]-p2[0]+1e-10)
             
-            _intercept = p1[1]-_slope*p1[0]
-            return _slope,_intercept    
+        #     _intercept = p1[1]-_slope*p1[0]
+        #     return _slope,_intercept    
 
-        LeftSlope = [ slope(LeftSet[idx],LeftSet[idx+1])[0] for idx in range(len(LeftSet)-1)]
-        LeftIntercept = [ slope(LeftSet[idx],LeftSet[idx+1])[1] for idx in range(len(LeftSet)-1)]
-        LeftSlope = np.median(np.array(LeftSlope))
-        LeftIntercept = np.median(np.array(LeftIntercept))
-        print("LeftSlope",LeftSlope)
+        # LeftSlope = [ slope(LeftSet[idx],LeftSet[idx+1])[0] for idx in range(len(LeftSet)-1)]
+        # LeftIntercept = [ slope(LeftSet[idx],LeftSet[idx+1])[1] for idx in range(len(LeftSet)-1)]
+        # LeftSlope = np.median(np.array(LeftSlope))
+        # LeftIntercept = np.median(np.array(LeftIntercept))
+        # # print("LeftSlope",LeftSlope)
 
-        RightSlope = [ slope(RightSet[idx],RightSet[idx+1])[0] for idx in range(len(RightSet)-1)]
-        RightIntercept = [ slope(RightSet[idx],RightSet[idx+1])[1] for idx in range(len(RightSet)-1)]
-        RightSlope = np.median(np.array(RightSlope))
-        RightIntercept = np.median(np.array(RightIntercept)) 
-        print("RightSlope",RightSlope)
+        # RightSlope = [ slope(RightSet[idx],RightSet[idx+1])[0] for idx in range(len(RightSet)-1)]
+        # RightIntercept = [ slope(RightSet[idx],RightSet[idx+1])[1] for idx in range(len(RightSet)-1)]
+        # RightSlope = np.median(np.array(RightSlope))
+        # RightIntercept = np.median(np.array(RightIntercept)) 
+        
+        # print("RightSlope",RightSlope)
         #------------- Slope Approach ------------------#
 
         # curve = lambda y,a: int(a[0]*y+a[1])
         curve = lambda y,a: int((y-a[1])/a[0])
         
-        # a = np.polyfit(LeftX, LeftY, 1)
-        # b = np.polyfit(RightX, RightY, 1)
+        a = np.polyfit(LeftX, LeftY, 1)
+        b = np.polyfit(RightX, RightY, 1)
         
         LeftY.sort()
         RightY.sort()
         # print(a)        
         # print(b)        
 
-        a = [LeftSlope,LeftIntercept]
-        b = [RightSlope,RightIntercept]
-        # a[0] = (a[0]+LeftSlope)/2.0
-        # b[0] = (b[0]+RightSlope)/2.0
+        # a = [LeftSlope,LeftIntercept]
+        # b = [RightSlope,RightIntercept]
 
         LeftPts = [(curve(_y,a),_y) for _y in LeftY]
         RightPts = [(curve(_y,b),_y) for _y in RightY]
@@ -292,7 +324,7 @@ clip1 = VideoFileClip("test_videos/solidWhiteRight.mp4")
 white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
 white_clip.write_videofile(white_output, audio=False)
 '''
-
+'''
 yellow_output = 'test_videos_output/solidYellowLeft.mp4'
 ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
 ## To do so add .subclip(start_second,end_second) to the end of the line below
@@ -302,9 +334,9 @@ yellow_output = 'test_videos_output/solidYellowLeft.mp4'
 clip2 = VideoFileClip('test_videos/solidYellowLeft.mp4')
 yellow_clip = clip2.fl_image(process_image)
 yellow_clip.write_videofile(yellow_output, audio=False)
-
-
 '''
+
+
 challenge_output = 'test_videos_output/challenge.mp4'
 ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
 ## To do so add .subclip(start_second,end_second) to the end of the line below
@@ -314,4 +346,3 @@ challenge_output = 'test_videos_output/challenge.mp4'
 clip3 = VideoFileClip('test_videos/challenge.mp4')
 challenge_clip = clip3.fl_image(process_image)
 challenge_clip.write_videofile(challenge_output, audio=False)
-'''
