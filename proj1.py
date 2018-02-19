@@ -36,9 +36,9 @@ def canny(img, low_threshold, high_threshold):
     # print("median:",v)
     lower = int(max(0, (1.0 - sigma) * v))
     upper = int(min(255, (1.0 + sigma) * v))
-    # return cv2.Canny(img, lower, upper)
+    return cv2.Canny(img, lower, upper)
 
-    return cv2.Canny(img, low_threshold, high_threshold)
+    # return cv2.Canny(img, low_threshold, high_threshold)
 
 def gaussian_blur(img, kernel_size):
     """Applies a Gaussian Noise kernel"""
@@ -169,14 +169,14 @@ def draw_lane_lines(image,):
     plt.title("masked_image")
     # line_image = hough_lines(inner_mask, rho, theta, threshold, min_line_len, max_line_gap)
 
-    color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
-    # color_edges = np.dstack((masked_image, masked_image, masked_image)) 
+    # color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
+    color_edges = np.dstack((masked_image, masked_image, masked_image)) 
     # color_edges = np.dstack((edges, edges, edges)) 
 
     # line interpolation
-    def interpolate_lines(line_image,_color=RED,line_thickness=10):
+    def interpolate_lines(line_image,_color=RED,line_thickness=15):
         imY,imX = line_image.shape
-        # print(imX,imY)
+        # print("imx/2",imX/2,imY)
         lines = cv2.HoughLinesP(line_image, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
         
         LeftSet = []
@@ -201,14 +201,47 @@ def draw_lane_lines(image,):
         RightX = np.array([pt[0] for pt in RightSet])
         RightY = np.array([pt[1] for pt in RightSet])
         
-        curve = lambda x,a: int(a[0]*x+a[1])
+        #------------- Slope Approach ------------------#
+        # slope = lambda p1,p2: abs((p2[1]-p1[1])/(p2[0]-p1[0]+1e-10))
         
-        a = np.polyfit(LeftY, LeftX, 1)
-        b = np.polyfit(RightY, RightX, 1)
+        def slope(p1,p2):
+            if(p2[1] > p1[1]):
+                _slope = (p2[1]-p1[1])/(p2[0]-p1[0]+1e-10)
+            else:    
+                _slope = (p1[1]-p2[1])/(p1[0]-p2[0]+1e-10)
+            
+            _intercept = p1[1]-_slope*p1[0]
+            return _slope,_intercept    
+
+        LeftSlope = [ slope(LeftSet[idx],LeftSet[idx+1])[0] for idx in range(len(LeftSet)-1)]
+        LeftIntercept = [ slope(LeftSet[idx],LeftSet[idx+1])[1] for idx in range(len(LeftSet)-1)]
+        LeftSlope = np.median(np.array(LeftSlope))
+        LeftIntercept = np.median(np.array(LeftIntercept))
+        print("LeftSlope",LeftSlope)
+
+        RightSlope = [ slope(RightSet[idx],RightSet[idx+1])[0] for idx in range(len(RightSet)-1)]
+        RightIntercept = [ slope(RightSet[idx],RightSet[idx+1])[1] for idx in range(len(RightSet)-1)]
+        RightSlope = np.median(np.array(RightSlope))
+        RightIntercept = np.median(np.array(RightIntercept)) 
+        print("RightSlope",RightSlope)
+        #------------- Slope Approach ------------------#
+
+        # curve = lambda y,a: int(a[0]*y+a[1])
+        curve = lambda y,a: int((y-a[1])/a[0])
+        
+        # a = np.polyfit(LeftX, LeftY, 1)
+        # b = np.polyfit(RightX, RightY, 1)
         
         LeftY.sort()
         RightY.sort()
-        
+        # print(a)        
+        # print(b)        
+
+        a = [LeftSlope,LeftIntercept]
+        b = [RightSlope,RightIntercept]
+        # a[0] = (a[0]+LeftSlope)/2.0
+        # b[0] = (b[0]+RightSlope)/2.0
+
         LeftPts = [(curve(_y,a),_y) for _y in LeftY]
         RightPts = [(curve(_y,b),_y) for _y in RightY]
 
