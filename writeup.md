@@ -29,11 +29,14 @@ The goals / steps of this project are the following:
 ### 1. Description of the pipeline.
 
 #### Filtering colors
-- To detect color HSL space works better than RGB. If we want to detect yellow color, variations in lighting conditions can change all the 3, (R,G,B) values. In HSL space Hue and Saturation of Yellow color show very less variations and only Light is affected, thus making it easier to track yellow color.Using this concept a white and yellow color filter is created for the image in the HSL space and the original RGB image is masked with these filters. This enhances the white and yellow lines.
+- To detect color HSL space works better than RGB. If we want to detect yellow color, variations in lighting conditions can change all the 3, (R,G,B) values. In HSL space Hue and Saturation of Yellow color show very less variations and only Light is affected, thus making it easier to track yellow color.Using this concept a white and yellow color filter is created for the image in the HSL space and the original RGB image is masked with these filters. This enhances the white and yellow lines. 
+- The reference talks about HSV, the same can be applied to HSL. 
+Ref:http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_colorspaces/py_colorspaces.html
 <img src="./docs/hsl_filtered.png" data-canonical-src="./docs/hsl_filtered.png" width="600" height="400" />
 
 #### Detecting Edges
 - To detect edges Canny edge detector is used. The image obtained in the previous step is first converted to grayscale and blurred using gaussian filter. This acts as Low pass filter and removes all small edges and corners. A dynamically adjusting Canny edge detector is used by calculating median of the image and setting the threshold as +- 10% of the median value.
+Ref:https://www.pyimagesearch.com/2015/04/06/zero-parameter-automatic-canny-edge-detection-with-python-and-opencv/
 <img src="./docs/canny.png" data-canonical-src="./docs/canny.png" width="600" height="400" />
 
 
