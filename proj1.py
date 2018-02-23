@@ -156,6 +156,41 @@ if not os.path.isdir("test_videos_output"):
     print("No dir")
     os.mkdir("test_videos_output")
 
+global MAFilterLeft
+MAFilterLeft = np.array([])
+
+global MAFilterRight
+MAFilterRight = np.array([])
+
+def MovingAvgFilter(curve_params,filter_name,max_size):
+    curve_params = np.array([curve_params])
+    if filter_name == "LEFT":
+        global MAFilterLeft
+        if MAFilterLeft.size == 0:
+            print("empty")
+            MAFilterLeft = curve_params
+        else:
+            MAFilterLeft = np.concatenate((MAFilterLeft, curve_params), axis=0)
+        
+        if MAFilterLeft.shape[0] > max_size:
+            # print("pop")
+            np.delete(MAFilterLeft,0,axis=0)
+
+        return np.median(MAFilterLeft,axis=0)
+    else:
+        global MAFilterRight
+        if MAFilterRight.size == 0:
+            print("empty")
+            MAFilterRight = curve_params
+        else:
+            MAFilterRight = np.concatenate((MAFilterRight, curve_params), axis=0)
+
+        if MAFilterRight.shape[0] > max_size:
+            # print("pop")
+            np.delete(MAFilterRight,0,axis=0)
+    
+        return np.median(MAFilterRight,axis=0)    
+
 def draw_lane_lines(image,):
     rho = 1 # distance resolution in pixels of the Hough grid
     theta = np.pi/180 # angular resolution in radians of the Hough grid
@@ -234,45 +269,22 @@ def draw_lane_lines(image,):
         RightX = np.array([pt[0] for pt in RightSet])
         RightY = np.array([pt[1] for pt in RightSet])
         
-        #------------- Slope Approach ------------------#
-        # slope = lambda p1,p2: abs((p2[1]-p1[1])/(p2[0]-p1[0]+1e-10))
-        
-        # def slope(p1,p2):
-        #     if(p2[1] > p1[1]):
-        #         _slope = (p2[1]-p1[1])/(p2[0]-p1[0]+1e-10)
-        #     else:    
-        #         _slope = (p1[1]-p2[1])/(p1[0]-p2[0]+1e-10)
-            
-        #     _intercept = p1[1]-_slope*p1[0]
-        #     return _slope,_intercept    
 
-        # LeftSlope = [ slope(LeftSet[idx],LeftSet[idx+1])[0] for idx in range(len(LeftSet)-1)]
-        # LeftIntercept = [ slope(LeftSet[idx],LeftSet[idx+1])[1] for idx in range(len(LeftSet)-1)]
-        # LeftSlope = np.median(np.array(LeftSlope))
-        # LeftIntercept = np.median(np.array(LeftIntercept))
-        # # print("LeftSlope",LeftSlope)
-
-        # RightSlope = [ slope(RightSet[idx],RightSet[idx+1])[0] for idx in range(len(RightSet)-1)]
-        # RightIntercept = [ slope(RightSet[idx],RightSet[idx+1])[1] for idx in range(len(RightSet)-1)]
-        # RightSlope = np.median(np.array(RightSlope))
-        # RightIntercept = np.median(np.array(RightIntercept)) 
+        # curve = lambda x,a: int(a[0]*x+a[1])
+        curve = lambda x,k: int(k[0]*x*x+k[1]*x+k[2])
+        # curve = lambda y,a: int((y-a[1])/a[0])
         
-        # print("RightSlope",RightSlope)
-        #------------- Slope Approach ------------------#
-
-        # curve = lambda y,a: int(a[0]*y+a[1])
-        curve = lambda y,a: int((y-a[1])/a[0])
-        
-        a = np.polyfit(LeftX, LeftY, 1)
-        b = np.polyfit(RightX, RightY, 1)
+        a = np.polyfit(LeftY, LeftX, 2)
+        # a = np.polyfit(LeftX, LeftY, 1)
+        b = np.polyfit(RightY, RightX, 2)
+        # b = np.polyfit(RightX, RightY, 1)
         
         LeftY.sort()
         RightY.sort()
-        # print(a)        
-        # print(b)        
-
-        # a = [LeftSlope,LeftIntercept]
-        # b = [RightSlope,RightIntercept]
+        
+        a = MovingAvgFilter(a,"LEFT",20)
+        # print("a",a)
+        b = MovingAvgFilter(b,"RIGHT",20)
 
         LeftPts = [(curve(_y,a),_y) for _y in LeftY]
         RightPts = [(curve(_y,b),_y) for _y in RightY]
