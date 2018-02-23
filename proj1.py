@@ -8,9 +8,7 @@ import os
 
 #reading in an image
 image = mpimg.imread('test_images/solidWhiteRight.jpg')
-# image = mpimg.imread('test_images/solidWhiteCurve.jpg')
-# image = mpimg.imread('test_images/solidYellowCurve2.jpg')
-# image = mpimg.imread('test_images/whiteCarLaneSwitch.jpg')
+
 
 #printing out some stats and plotting
 print('This image is:', type(image), 'with dimensions:', image.shape)
@@ -132,7 +130,12 @@ def HSL_filtered(image):
 
 
 
-os.listdir("test_images/")
+test_images = os.listdir("test_images/")
+test_images = [os.path.join(os.getcwd(),"test_images",test_image) \
+                                    for test_image in test_images]
+
+# print(test_images)
+
 if not os.path.isdir("test_videos_output"):
     print("No dir")
     os.mkdir("test_videos_output")
@@ -169,6 +172,13 @@ def MovingAvgFilter(curve_params,filter_name,max_size):
             np.delete(MAFilterRight,0,axis=0)
     
         return np.median(MAFilterRight,axis=0)    
+
+def flushFilter():
+    global MAFilterLeft
+    MAFilterLeft = np.array([])
+
+    global MAFilterRight
+    MAFilterRight = np.array([])
 
 def draw_lane_lines(image,):
     rho = 1 # distance resolution in pixels of the Hough grid
@@ -259,9 +269,11 @@ def draw_lane_lines(image,):
     lines_edges = weighted_img(new_line_img,color_edges)
     return lines_edges
 
-result = draw_lane_lines(image)
-plt.figure()
-plt.imshow(result)
+for test_image in test_images:
+    _image = mpimg.imread(test_image)
+    result = draw_lane_lines(_image)
+    plt.figure()
+    plt.imshow(result)
 plt.show()
 
 from moviepy.editor import VideoFileClip
@@ -277,7 +289,8 @@ def process_image(image):
         result = image
     return result
 
-'''
+
+flushFilter()
 white_output = 'test_videos_output/solidWhiteRight.mp4'
 ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
 ## To do so add .subclip(start_second,end_second) to the end of the line below
@@ -287,8 +300,9 @@ white_output = 'test_videos_output/solidWhiteRight.mp4'
 clip1 = VideoFileClip("test_videos/solidWhiteRight.mp4")
 white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
 white_clip.write_videofile(white_output, audio=False)
-'''
-'''
+
+
+flushFilter()
 yellow_output = 'test_videos_output/solidYellowLeft.mp4'
 ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
 ## To do so add .subclip(start_second,end_second) to the end of the line below
@@ -298,9 +312,10 @@ yellow_output = 'test_videos_output/solidYellowLeft.mp4'
 clip2 = VideoFileClip('test_videos/solidYellowLeft.mp4')
 yellow_clip = clip2.fl_image(process_image)
 yellow_clip.write_videofile(yellow_output, audio=False)
-'''
 
 
+
+flushFilter()
 challenge_output = 'test_videos_output/challenge.mp4'
 ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
 ## To do so add .subclip(start_second,end_second) to the end of the line below
