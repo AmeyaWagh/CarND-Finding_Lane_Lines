@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
 import cv2
+import math
+import os
 
 
 #reading in an image
@@ -12,9 +14,8 @@ image = mpimg.imread('test_images/solidWhiteRight.jpg')
 
 #printing out some stats and plotting
 print('This image is:', type(image), 'with dimensions:', image.shape)
-# plt.imshow(image)  # if you wanted to show a single color channel image called 'gray', for example, call as plt.imshow(gray, cmap='gray')
+plt.imshow(image)  # if you wanted to show a single color channel image called 'gray', for example, call as plt.imshow(gray, cmap='gray')
 
-import math
 RED = (255,0,0)
 GREEN = (0,255,0)
 BLUE = (0,0,255)
@@ -25,18 +26,17 @@ def grayscale(img):
     but NOTE: to see the returned image as grayscale
     (assuming your grayscaled image is called 'gray')
     you should call plt.imshow(gray, cmap='gray')"""
-    return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     # Or use BGR2GRAY if you read an image with cv2.imread()
     # return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     
 def canny(img, low_threshold, high_threshold):
     """Applies the Canny transform"""
     sigma=0.10
-    v = np.median(img)
-    # print("median:",v)
-    lower = int(max(0, (1.0 - sigma) * v))
-    upper = int(min(255, (1.0 + sigma) * v))
-    return cv2.Canny(img, lower, upper)
+    median_img = np.median(img)
+    lower_val = int(max(0, (1.0 - sigma) * median_img))
+    upper_val = int(min(255, (1.0 + sigma) * median_img))
+    return cv2.Canny(img, lower_val, upper_val)
 
     # return cv2.Canny(img, low_threshold, high_threshold)
 
@@ -103,7 +103,6 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
     return line_img
 
 # Python 3 has support for cool math symbols.
-
 def weighted_img(img, initial_img, α=0.8, β=1., γ=0.):
     """
     `img` is the output of the hough_lines(), An image with lines drawn on it.
@@ -121,36 +120,18 @@ def weighted_img(img, initial_img, α=0.8, β=1., γ=0.):
 
 def HSL_filtered(image):
     hsl_image = cv2.cvtColor(image,cv2.COLOR_RGB2HLS)
-    # white color mask
-    lower = np.uint8([  0, 200,   0])
-    upper = np.uint8([255, 255, 255])
-    white_mask = cv2.inRange(hsl_image, lower, upper)
-    # yellow color mask
-    lower = np.uint8([ 10,   0, 100])
-    upper = np.uint8([ 40, 255, 255])
-    yellow_mask = cv2.inRange(hsl_image, lower, upper)
-    # combine the mask
+    white_mask = cv2.inRange(hsl_image, 
+                            np.uint8([  0, 190,   0]), 
+                            np.uint8([255, 255, 255]))
+    yellow_mask = cv2.inRange(hsl_image, 
+                            np.uint8([ 12,   0, 100]), 
+                            np.uint8([ 38, 255, 255]))
     mask = cv2.bitwise_or(white_mask, yellow_mask)
+    
     return cv2.bitwise_and(image, image, mask = mask)
 
-# def HSV_filtered(image):
-#     hsv_image = cv2.cvtColor(image,cv2.COLOR_RGB2HSV)
-#     # define range of blue color in HSV
-#     lower_yellow = np.array([58,13,60])
-#     upper_yellow = np.array([64,98,100])
-#     # Threshold the HSV image to get only blue colors
-#     mask_yellow = cv2.inRange(hsv_image, lower_yellow, upper_yellow)
 
-#     lower_white = np.array([0,0,60])
-#     upper_white = np.array([359,3,100])
-#     # Threshold the HSV image to get only blue colors
-#     mask_white = cv2.inRange(hsv_image, lower_white, upper_white)
 
-#     mask = cv2.bitwise_or(mask_white, mask_yellow)
-#     # Bitwise-AND mask and original image
-#     res = cv2.bitwise_and(image,image, mask= mask)
-
-import os
 os.listdir("test_images/")
 if not os.path.isdir("test_videos_output"):
     print("No dir")
@@ -173,7 +154,6 @@ def MovingAvgFilter(curve_params,filter_name,max_size):
             MAFilterLeft = np.concatenate((MAFilterLeft, curve_params), axis=0)
         
         if MAFilterLeft.shape[0] > max_size:
-            # print("pop")
             np.delete(MAFilterLeft,0,axis=0)
 
         return np.median(MAFilterLeft,axis=0)
@@ -186,7 +166,6 @@ def MovingAvgFilter(curve_params,filter_name,max_size):
             MAFilterRight = np.concatenate((MAFilterRight, curve_params), axis=0)
 
         if MAFilterRight.shape[0] > max_size:
-            # print("pop")
             np.delete(MAFilterRight,0,axis=0)
     
         return np.median(MAFilterRight,axis=0)    
@@ -213,39 +192,21 @@ def draw_lane_lines(image,):
     right_upper = (imgX*0.57,imgY*0.60)
     right_lower = (imgX*0.92,imgY)
 
-    left_lower_in = (imgX*0.20,imgY)
-    left_upper_in = (imgX*0.50,imgY*0.62)
-    right_upper_in = (imgX*0.50,imgY*0.62)
-    right_lower_in = (imgX*0.80,imgY)
 
-    vertices = np.array([[left_lower,left_upper,right_upper,right_lower]], dtype=np.int32)
-    vertices_inner = np.array([[left_lower_in,left_upper_in,right_upper_in,right_lower_in]], dtype=np.int32)
+    vertices = np.array([[left_lower,left_upper,
+                        right_upper,right_lower]], dtype=np.int32)
     
     edges = canny(gaussian_image,95,100)
     masked_image = region_of_interest(edges, vertices)
     
-    # masked_image = region_of_interest(gaussian_image, vertices,vertices_inner)
-    # masked_image = gaussian_blur(masked_image,11)
-    # edges = canny(masked_image,95,100)
-    # edges = region_of_interest(edges, vertices,vertices_inner)
-   
-
-    plt.figure()
-    plt.imshow(edges)
-    plt.figure()
-    plt.imshow(masked_image)
-    plt.title("masked_image")
-    # line_image = hough_lines(inner_mask, rho, theta, threshold, min_line_len, max_line_gap)
-
+    
     color_edges = np.dstack((image[:,:,0], image[:,:,1], image[:,:,2])) 
-    # color_edges = np.dstack((masked_image, masked_image, masked_image)) 
-    # color_edges = np.dstack((edges, edges, edges)) 
-
+   
     # line interpolation
-    def interpolate_lines(line_image,_color=RED,line_thickness=15):
+    def interpolate_lines(line_image,_color=RED,line_thickness=10):
         imY,imX = line_image.shape
-        # print("imx/2",imX/2,imY)
-        lines = cv2.HoughLinesP(line_image, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
+        lines = cv2.HoughLinesP(line_image, rho, theta, threshold, 
+            np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
         
         LeftSet = []
         RightSet = []
@@ -270,20 +231,15 @@ def draw_lane_lines(image,):
         RightY = np.array([pt[1] for pt in RightSet])
         
 
-        # curve = lambda x,a: int(a[0]*x+a[1])
         curve = lambda x,k: int(k[0]*x*x+k[1]*x+k[2])
-        # curve = lambda y,a: int((y-a[1])/a[0])
         
         a = np.polyfit(LeftY, LeftX, 2)
-        # a = np.polyfit(LeftX, LeftY, 1)
         b = np.polyfit(RightY, RightX, 2)
-        # b = np.polyfit(RightX, RightY, 1)
         
         LeftY.sort()
         RightY.sort()
         
         a = MovingAvgFilter(a,"LEFT",20)
-        # print("a",a)
         b = MovingAvgFilter(b,"RIGHT",20)
 
         LeftPts = [(curve(_y,a),_y) for _y in LeftY]
@@ -292,9 +248,6 @@ def draw_lane_lines(image,):
         LeftPts = np.append(LeftPts,np.array([[curve(imY,a),imY]]),axis=0)
         RightPts = np.append(RightPts,np.array([[curve(imY,b),imY]]),axis=0)
 
-        # LeftSet = np.array(LeftSet)
-        # RightSet = np.array(RightSet)
-        
         new_line_img = np.zeros((line_image.shape[0], line_image.shape[1], 3), dtype=np.uint8)
 
         cv2.polylines(new_line_img, np.int32([LeftPts]), 0, _color,line_thickness)
@@ -302,11 +255,10 @@ def draw_lane_lines(image,):
         return new_line_img
 
     line_image = hough_lines(masked_image, rho, theta, threshold, min_line_len, max_line_gap)
-    # new_line_img = interpolate_lines(line_image[:,:,0])
     new_line_img = interpolate_lines(masked_image)
     lines_edges = weighted_img(new_line_img,color_edges)
-    # return edges
     return lines_edges
+
 result = draw_lane_lines(image)
 plt.figure()
 plt.imshow(result)
